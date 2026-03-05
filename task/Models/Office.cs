@@ -28,5 +28,5 @@ public class Office
 
     public string WorkTime { get; set; } = string.Empty;
 
-    public Phone Phones { get; set; } = new List<Phone>();
+    public List<Phone> Phones { get; set; } = new List<Phone>();
 }
