@@ -6,7 +6,7 @@ public class Office
 
     public string? Code { get; set; }
 
-    public int CityCode { get; set; }
+    public int? CityCode { get; set; }
 
     public string? Uuid { get; set; }
 
