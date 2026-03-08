@@ -1,25 +1,35 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
-using task.Data;
+using task.Mappers;
 using task.Models;
+using task.Models.Dto;
+using task.Repositories;
 using task.Services.Interfaces;
 
 namespace task.Services
 {
     internal class TerminalImportService : ITerminalImportService
     {
-        private readonly DellinDictionaryDbContext _dbContext;
+        private readonly IOfficeRepository _officeRepository;
         private readonly ILogger<TerminalImportService> _logger;
 
-        public TerminalImportService(DellinDictionaryDbContext dbContext, ILogger<TerminalImportService> logger)
+        private static readonly JsonSerializerOptions JsonOptions = new()
         {
-            _dbContext = dbContext;
+            PropertyNameCaseInsensitive = true
+        };
+
+        public TerminalImportService(
+            IOfficeRepository officeRepository,
+            ILogger<TerminalImportService> logger)
+        {
+            _officeRepository = officeRepository;
             _logger = logger;
         }
 
         public async Task ImportAsync(string filePath, CancellationToken cancellationToken)
         {
+            var stopwatch = Stopwatch.StartNew();
+
             try
             {
                 if (!File.Exists(filePath))
@@ -28,46 +38,51 @@ namespace task.Services
                     return;
                 }
 
-                var stopwatch = Stopwatch.StartNew();
+                var root = await DeserializeAsync(filePath, cancellationToken);
 
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
+                var terminals = ExtractTerminals(root);
 
-                await using var stream = File.OpenRead(filePath);
-
-                var offices = await JsonSerializer.DeserializeAsync<List<Office>>(
-                    stream,
-                    options,
-                    cancellationToken) ?? new();
+                var offices = terminals
+                    .Select(u => OfficeMapper.Map(u.Terminal, u.City))
+                    .ToList();
 
                 _logger.LogInformation("Загружено {Count} терминалов из JSON", offices.Count);
 
-                await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+                await _officeRepository.ReplaceAllAsync(offices, cancellationToken);
 
-                var oldCount = await _dbContext.Offices.CountAsync(cancellationToken);
-
-                await _dbContext.Database.ExecuteSqlRawAsync(
-                    "TRUNCATE TABLE \"Offices\" CASCADE",
-                    cancellationToken);
-
-                _logger.LogInformation("Удалено {OldCount} старых записей", oldCount);
-
-                await _dbContext.Offices.AddRangeAsync(offices, cancellationToken);
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                await transaction.CommitAsync(cancellationToken);
-
-                stopwatch.Stop();
-
-                _logger.LogInformation("Сохранено {NewCount} новых терминалов", offices.Count);
+                _logger.LogInformation("Сохранено {Count} новых терминалов", offices.Count);
                 _logger.LogInformation("Время импорта: {ElapsedMs} ms", stopwatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
-                _logger.LogError("Ошибка импорта: {Exception}", ex.Message);
+                _logger.LogError("Ошибка импорта: {Exception}", ex);
             }
+            finally
+            {
+                stopwatch.Stop();
+            }
+        }
+
+        private async Task<RootDto?> DeserializeAsync(string filePath, CancellationToken cancellationToken)
+        {
+            using var stream = File.OpenRead(filePath);
+
+            return await JsonSerializer.DeserializeAsync<RootDto>(
+                stream,
+                JsonOptions,
+                cancellationToken);
+        }
+
+        private List<(TerminalDto Terminal, CityDto City)> ExtractTerminals(RootDto? root)
+        {
+            if (root?.City == null)
+                return new();
+
+            return root.City
+                .Where(c => c.Terminals?.Terminal != null)
+                .SelectMany(c => c.Terminals!.Terminal!
+                     .Select(t => (Terminal: t, City: c)))
+                .ToList();
         }
     }
 }
