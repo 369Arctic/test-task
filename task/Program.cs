@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using task;
 using task.BackgroundServices;
 using task.Data;
+using task.Repositories;
 using task.Services;
 using task.Services.Interfaces;
 
@@ -12,6 +13,7 @@ builder.Services.AddDbContext<DellinDictionaryDbContext>(options =>
         builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddScoped<ITerminalImportService, TerminalImportService>();
+builder.Services.AddScoped<IOfficeRepository, OfficeRepository>();
 builder.Services.AddHostedService<TerminalImportHostedService>();
 
 
