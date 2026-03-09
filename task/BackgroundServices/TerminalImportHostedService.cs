@@ -71,7 +71,6 @@ namespace task.BackgroundServices
                 nextRun = nextRun.AddDays(1);
 
             return nextRun - now;
-            
         }
     }
 }
