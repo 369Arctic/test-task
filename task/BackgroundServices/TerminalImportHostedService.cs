@@ -1,8 +1,10 @@
-﻿using System;
+﻿using Microsoft.Extensions.Options;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using task.Options;
 using task.Services.Interfaces;
 
 namespace task.BackgroundServices
@@ -11,11 +13,16 @@ namespace task.BackgroundServices
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<TerminalImportHostedService> _logger;
+        private readonly TerminalImportOptions _options;
 
-        public TerminalImportHostedService(IServiceProvider serviceProvider, ILogger<TerminalImportHostedService> logger)
+        public TerminalImportHostedService(
+            IServiceProvider serviceProvider,
+            ILogger<TerminalImportHostedService> logger,
+            IOptions<TerminalImportOptions> options)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _options = options.Value;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -26,35 +33,45 @@ namespace task.BackgroundServices
             {
                 try
                 {
-                    // TODO проверить корректность формирования даты.
-                    var now = DateTime.Now;
-                    var nextRun = now.Date.AddDays(1).AddHours(2);
-
-                    if (now.Hour < 2)
-                        nextRun = now.Date.AddHours(2);
-
-                    var delay = nextRun - now;
+                    var delay = GetDelay();
 
                     _logger.LogInformation("Следующий запуск импорта через {Delay}", delay);
 
                     await Task.Delay(delay, stoppingToken);
 
-                    using var scope = _serviceProvider.CreateScope();
-
-                    var importService = scope.ServiceProvider.GetRequiredService<ITerminalImportService>();
-
-                    var filePath = Path.Combine(
-                        AppContext.BaseDirectory,
-                        "files",
-                        "terminals.json");
-
-                    await importService.ImportAsync(filePath, stoppingToken);
+                    await RunImport(stoppingToken);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError("Ошибка импорта: {Exception}", ex.Message);
                 }
             }
+        }
+
+        private async Task RunImport(CancellationToken stoppingToken)
+        {
+            using var scope = _serviceProvider.CreateScope();
+
+            var importService = scope.ServiceProvider.GetRequiredService<ITerminalImportService>();
+
+            var filePath = Path.Combine(AppContext.BaseDirectory, _options.FilePath);
+
+            _logger.LogInformation("Запуск импорта терминалов из файла {Path}", filePath);
+
+            await importService.ImportAsync(filePath, stoppingToken);
+        }
+
+        private TimeSpan GetDelay()
+        {
+            var now = DateTime.UtcNow;
+
+            var nextRun = now.Date.AddHours(_options.RunHourUtc);
+
+            if (now >= nextRun)
+                nextRun = nextRun.AddDays(1);
+
+            return nextRun - now;
+            
         }
     }
 }
