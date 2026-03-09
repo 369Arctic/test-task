@@ -9,6 +9,15 @@ using task.Services.Interfaces;
 
 namespace task.BackgroundServices
 {
+    /// <summary>
+    /// Фоновый сервис, выполняющий периодический импорт терминалов.
+    /// </summary>
+    /// <remarks>
+    /// Сервис работает на протяжении всего времени жизни приложения.
+    /// Он рассчитывает задержку до следующего запуска и выполняет импорт
+    /// данных терминалов с помощью <see cref="ITerminalImportService"/>.
+    /// </remarks>
+
     internal class TerminalImportHostedService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
@@ -25,6 +34,18 @@ namespace task.BackgroundServices
             _options = options.Value;
         }
 
+        /// <summary>
+        /// Основной цикл выполнения фонового сервиса.
+        /// </summary>
+        /// <param name="stoppingToken">
+        /// Токен отмены, сигнализирующий об остановке приложения.
+        /// </param>
+        /// <returns>Асинхронная задача выполнения сервиса.</returns>
+        /// <remarks>
+        /// Сервис работает в бесконечном цикле до остановки приложения.
+        /// Перед каждым запуском импорта рассчитывается задержка до следующего
+        /// запланированного времени выполнения.
+        /// </remarks>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Terminal import worker started");
@@ -48,6 +69,13 @@ namespace task.BackgroundServices
             }
         }
 
+        /// <summary>
+        /// Выполнить импорт терминалов из файла.
+        /// </summary>
+        /// <param name="stoppingToken">
+        /// Токен отмены для корректной остановки операции.
+        /// </param>
+        /// <returns>Асинхронная задача выполнения импорта.</returns>
         private async Task RunImport(CancellationToken stoppingToken)
         {
             using var scope = _serviceProvider.CreateScope();
@@ -61,6 +89,14 @@ namespace task.BackgroundServices
             await importService.ImportAsync(filePath, stoppingToken);
         }
 
+        /// <summary>
+        /// Вычислить задержку до следующего запуска импорта.
+        /// </summary>
+        /// <returns>Временной интервал до следующего запуска задачи.</returns>
+        /// <remarks>
+        /// Импорт выполняется один раз в сутки в час, указанный в настройках
+        /// <see cref="TerminalImportOptions.RunHourUtc"/>. Для вычислений используется UTC-время.
+        /// </remarks>
         private TimeSpan GetDelay()
         {
             var now = DateTime.UtcNow;

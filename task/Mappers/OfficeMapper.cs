@@ -11,6 +11,13 @@ namespace task.Mappers
 {
     internal class OfficeMapper
     {
+        /// <summary>
+        /// Преобразовать данные из TerminalDto и CityDto в сущность Office.
+        /// </summary>
+        /// <param name="terminalDto">DTO терминала.</param>
+        /// <param name="cityDto">DTO города.</param>
+        /// <returns>Экземпляр <see cref="Office"/> с заполненными свойствами, включая координаты и телефоны.</returns>
+
         public static Office Map(TerminalDto terminalDto, CityDto cityDto)
         {
             double.TryParse(terminalDto.Latitude, NumberStyles.Any, CultureInfo.InvariantCulture, out var latitude);
@@ -48,6 +55,15 @@ namespace task.Mappers
             };
         }
 
+        /// <summary>
+        /// Разбить строку адреса на отдельные части: улицу и номер дома.
+        /// </summary>
+        /// <param name="address">Строка адреса в формате "улица, дом".</param>
+        /// <returns>
+        /// Кортеж, где <c>Item1</c> — улица (street), 
+        /// <c>Item2</c> — номер дома (house). 
+        /// Если адрес отсутствует, возвращается (null, null).
+        /// </returns>
         private static (string?, string?) ParseAddress(string? address)
         {
             if (string.IsNullOrEmpty(address))
@@ -61,6 +77,11 @@ namespace task.Mappers
             );
         }
 
+        /// <summary>
+        /// Определить тип офиса на основе свойств TerminalDto.
+        /// </summary>
+        /// <param name="terminalDto">DTO терминала.</param>
+        /// <returns>Тип офиса <see cref="OfficeType"/></returns>
         private static OfficeType ParseOfficeType(TerminalDto terminalDto)
         {
             if (terminalDto.IsPVZ == true)
