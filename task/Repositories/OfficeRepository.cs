@@ -16,6 +16,20 @@ namespace task.Repositories
             _logger = logger;
         }
 
+        /// <summary>
+        /// Заменить все данные офисов и телефонов в БД.
+        /// </summary>
+        /// <param name="offices">Список офисов для импорта.</param>
+        /// <param name="ct">Токен отмены для асинхронных операций.</param>
+        /// <remarks>
+        /// Логика работы метода:
+        /// 1. Создать транзакцию для обеспечения атомарности операций.
+        /// 2. Полностью очистить таблицы "Phone" и "Offices", сбросив идентификаторы.
+        /// 3. Выполнить BulkInsert для офисов.
+        /// 4. Получить актуальные идентификаторы офисов из БД.
+        /// 5. Привязать телефоны к соответствующим офисам и выполняет BulkInsert телефонов.
+        /// 6. Зафиксировать транзакцию.
+        /// </remarks>
         public async Task ReplaceAllAsync(List<Office> offices, CancellationToken ct)
         {
             await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);

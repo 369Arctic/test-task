@@ -26,6 +26,12 @@ namespace task.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Выполнить импорт терминалов из JSON-файла.
+        /// </summary>
+        /// <param name="filePath">Путь к JSON-файлу с данными терминалов.</param>
+        /// <param name="cancellationToken">Токен отмены для асинхронной операции.</param>
+        /// <returns>Асинхронная задача импорта терминалов.</returns>
         public async Task ImportAsync(string filePath, CancellationToken cancellationToken)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -63,6 +69,12 @@ namespace task.Services
             }
         }
 
+        /// <summary>
+        /// Десериализация JSON-файла в объект <see cref="RootDto"/>.
+        /// </summary>
+        /// <param name="filePath">Путь к JSON-файлу.</param>
+        /// <param name="cancellationToken">Токен отмены.</param>
+        /// <returns>Объект <see cref="RootDto"/> с данными терминалов и городов.</returns>
         private async Task<RootDto?> DeserializeAsync(string filePath, CancellationToken cancellationToken)
         {
             using var stream = File.OpenRead(filePath);
@@ -73,6 +85,11 @@ namespace task.Services
                 cancellationToken);
         }
 
+        /// <summary>
+        /// Извлечь список терминалов с привязкой к городам из DTO корневого объекта.
+        /// </summary>
+        /// <param name="root">Корневой DTO объект <see cref="RootDto"/>.</param>
+        /// <returns>Список кортежей (терминал, город) для дальнейшего маппинга.</returns>
         private List<(TerminalDto Terminal, CityDto City)> ExtractTerminals(RootDto? root)
         {
             if (root?.City == null)
